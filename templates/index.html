@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consent Management System</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      padding: 2rem;
+    }
+
+    h1 { font-size: 1.6rem; margin-bottom: 1.8rem; color: #16213e; }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #16213e; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1.4rem 1.6rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+
+    label { display: block; margin-bottom: .4rem; font-size: .9rem; font-weight: 500; }
+
+    select, input[type="text"], input[type="date"] {
+      width: 100%;
+      padding: .5rem .7rem;
+      border: 1px solid #cdd0d8;
+      border-radius: 6px;
+      font-size: .9rem;
+      margin-bottom: 1rem;
+    }
+
+    .checkbox-group { margin-bottom: 1rem; }
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-weight: 400;
+      margin-bottom: .3rem;
+    }
+
+    button {
+      display: inline-block;
+      padding: .5rem 1.2rem;
+      background: #0f3460;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .9rem;
+      margin-top: .4rem;
+    }
+    button:hover { background: #16213e; }
+    button.secondary { background: #e94560; }
+    button.secondary:hover { background: #c73652; }
+
+    #consent-result, #request-result {
+      margin-top: .8rem;
+      font-size: .85rem;
+      padding: .5rem .8rem;
+      border-radius: 5px;
+      display: none;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error   { background: #f8d7da; color: #721c24; }
+    .info    { background: #d1ecf1; color: #0c5460; }
+
+    /* Audit log table */
+    #audit-section { display: none; }
+    #audit-section.visible { display: block; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      margin-top: 1rem;
+    }
+    th {
+      background: #0f3460;
+      color: #fff;
+      padding: .5rem .7rem;
+      text-align: left;
+    }
+    td { padding: .45rem .7rem; border-bottom: 1px solid #e8e8e8; }
+    tr:nth-child(even) td { background: #f7f8fb; }
+
+    .badge {
+      display: inline-block;
+      padding: .15rem .5rem;
+      border-radius: 4px;
+      font-size: .78rem;
+      font-weight: 600;
+    }
+    .badge-allowed          { background: #d4edda; color: #155724; }
+    .badge-denied           { background: #f8d7da; color: #721c24; }
+    .badge-partial          { background: #fff3cd; color: #856404; }
+
+    .field-list { margin-top: .4rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+    .field-tag  {
+      display: inline-block; padding: .15rem .55rem;
+      border-radius: 4px; font-size: .78rem; font-weight: 600;
+    }
+    .field-tag.allowed  { background: #d4edda; color: #155724; }
+    .field-tag.redacted { background: #f8d7da; color: #721c24; }
+
+    .section-label {
+      font-size: .8rem; font-weight: 600; color: #555;
+      text-transform: uppercase; letter-spacing: .04em;
+      margin-bottom: .35rem; margin-top: .1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Consent Management System</h1>
+
+  <div class="grid">
+
+    <!-- ── Register / update consent ─────────────────────────────── -->
+    <div class="card">
+      <h2>Register Consent</h2>
+
+      <label for="consent-user">Select user</label>
+      <select id="consent-user">
+        <option value="">— choose a user —</option>
+        {% for user in users %}
+        <option value="{{ user.id }}">{{ user.name }} ({{ user.email }})</option>
+        {% endfor %}
+      </select>
+
+      <p class="section-label">Purposes</p>
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="cb-research"    value="research"    /> Research</label>
+        <label><input type="checkbox" id="cb-analytics"   value="analytics"   /> Analytics</label>
+        <label><input type="checkbox" id="cb-advertising" value="advertising" /> Advertising</label>
+      </div>
+
+      <p class="section-label">Data Categories <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#888">(optional)</span></p>
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="cb-cat-email"            value="email"            /> Email</label>
+        <label><input type="checkbox" id="cb-cat-age_group"        value="age_group"        /> Age Group</label>
+        <label><input type="checkbox" id="cb-cat-purchase_history" value="purchase_history" /> Purchase History</label>
+        <label><input type="checkbox" id="cb-cat-location"         value="location"         /> Location</label>
+      </div>
+
+      <label for="consent-expiry">Expiry Date <span style="font-weight:400;color:#888">(optional)</span></label>
+      <input type="date" id="consent-expiry" />
+
+      <button onclick="submitConsent()">Save Consent</button>
+      <div id="consent-result"></div>
+    </div>
+
+    <!-- ── Data access request ────────────────────────────────────── -->
+    <div class="card">
+      <h2>Data Access Request</h2>
+
+      <label for="req-user">Select user</label>
+      <select id="req-user">
+        <option value="">— choose a user —</option>
+        {% for user in users %}
+        <option value="{{ user.id }}">{{ user.name }} ({{ user.email }})</option>
+        {% endfor %}
+      </select>
+
+      <label for="req-purpose">Purpose</label>
+      <select id="req-purpose">
+        <option value="research">Research</option>
+        <option value="analytics">Analytics</option>
+        <option value="advertising">Advertising</option>
+      </select>
+
+      <p class="section-label">Requested Fields <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#888">(optional)</span></p>
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="req-cat-email"            value="email"            /> Email</label>
+        <label><input type="checkbox" id="req-cat-age_group"        value="age_group"        /> Age Group</label>
+        <label><input type="checkbox" id="req-cat-purchase_history" value="purchase_history" /> Purchase History</label>
+        <label><input type="checkbox" id="req-cat-location"         value="location"         /> Location</label>
+      </div>
+
+      <button onclick="submitRequest()">Check Access</button>
+      <div id="request-result"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Audit log ──────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Audit Log</h2>
+
+    <label for="audit-filter">Filter by user (optional)</label>
+    <select id="audit-filter" style="width:auto;min-width:220px">
+      <option value="">— all users —</option>
+      {% for user in users %}
+      <option value="{{ user.id }}">{{ user.name }}</option>
+      {% endfor %}
+    </select>
+
+    <button class="secondary" onclick="loadAudit()">View Audit Log</button>
+    <button class="secondary" onclick="verifyAudit()" style="margin-left:.5rem">Verify Audit Integrity</button>
+    <div id="verify-result" style="margin-top:.8rem;font-size:.85rem;padding:.5rem .8rem;border-radius:5px;display:none"></div>
+
+    <div id="audit-section">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>User ID</th>
+            <th>Purpose</th>
+            <th>Decision</th>
+            <th>Reason</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="audit-body"></tbody>
+      </table>
+      <p id="audit-empty" style="margin-top:.8rem;font-size:.85rem;color:#666;display:none">
+        No audit entries found.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    /* ── Consent form ───────────────────────────────────────────── */
+    async function submitConsent() {
+      const userId = document.getElementById("consent-user").value;
+
+      // Collect purpose opt-ins
+      const consents = {};
+      ["research", "analytics", "advertising"].forEach(p => {
+        consents[p] = document.getElementById(`cb-${p}`).checked;
+      });
+
+      // Collect checked data categories
+      const data_categories = ["email", "age_group", "purchase_history", "location"]
+        .filter(c => document.getElementById(`cb-cat-${c}`).checked);
+
+      // Read optional expiry date and convert to ISO 8601 datetime string
+      const expiryDate = document.getElementById("consent-expiry").value;
+      const validUntil = expiryDate ? expiryDate + "T23:59:59" : null;
+
+      const resultEl = document.getElementById("consent-result");
+
+      if (!userId) {
+        showResult(resultEl, "Please select a user.", "error");
+        return;
+      }
+
+      const payload = { user_id: parseInt(userId), consents, data_categories };
+      if (validUntil) payload.valid_until = validUntil;
+
+      try {
+        const res = await fetch("/consent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        showResult(resultEl, data.message || data.error, res.ok ? "success" : "error");
+      } catch (e) {
+        showResult(resultEl, "Network error: " + e.message, "error");
+      }
+    }
+
+    /* ── Access request form ────────────────────────────────────── */
+    async function submitRequest() {
+      const userId  = document.getElementById("req-user").value;
+      const purpose = document.getElementById("req-purpose").value;
+      const resultEl = document.getElementById("request-result");
+
+      // Collect checked requested fields
+      const requested_fields = ["email", "age_group", "purchase_history", "location"]
+        .filter(f => document.getElementById(`req-cat-${f}`).checked);
+
+      if (!userId) {
+        showResult(resultEl, "Please select a user.", "error");
+        return;
+      }
+
+      try {
+        const res  = await fetch("/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: parseInt(userId), purpose, requested_fields }),
+        });
+        const data = await res.json();
+
+        // Choose banner colour based on decision
+        const clsMap = { allowed: "success", partially_allowed: "info", denied: "error" };
+        const iconMap = { allowed: "✔", partially_allowed: "⚠", denied: "✖" };
+        const cls  = clsMap[data.decision]  || "error";
+        const icon = iconMap[data.decision] || "✖";
+
+        // Build HTML showing allowed / redacted field tags when present
+        let fieldsHtml = "";
+        if (data.allowed_fields && data.allowed_fields.length) {
+          const tags = data.allowed_fields.map(f =>
+            `<span class="field-tag allowed">${f}</span>`).join("");
+          fieldsHtml += `<div class="field-list"><strong>Allowed:</strong> ${tags}</div>`;
+        }
+        if (data.redacted_fields && data.redacted_fields.length) {
+          const tags = data.redacted_fields.map(f =>
+            `<span class="field-tag redacted">${f}</span>`).join("");
+          fieldsHtml += `<div class="field-list"><strong>Redacted:</strong> ${tags}</div>`;
+        }
+
+        resultEl.className      = cls;
+        resultEl.style.display  = "block";
+        resultEl.innerHTML      =
+          `<strong>${icon} ${data.decision.replace("_", " ")}</strong> — ${data.reason}${fieldsHtml}`;
+      } catch (e) {
+        showResult(resultEl, "Network error: " + e.message, "error");
+      }
+    }
+
+    /* ── Audit log ──────────────────────────────────────────────── */
+    async function loadAudit() {
+      const userId = document.getElementById("audit-filter").value;
+      const url    = userId ? `/audit?user_id=${userId}` : "/audit";
+
+      try {
+        const res  = await fetch(url);
+        const data = await res.json();
+
+        const tbody   = document.getElementById("audit-body");
+        const section = document.getElementById("audit-section");
+        const empty   = document.getElementById("audit-empty");
+
+        tbody.innerHTML = "";
+        section.classList.add("visible");
+
+        if (data.length === 0) {
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+
+        // Build one table row per audit entry
+        data.forEach(entry => {
+          const badgeCls = entry.decision === "allowed" ? "badge-allowed" : "badge-denied";
+          const ts       = new Date(entry.timestamp).toLocaleString();
+          tbody.insertAdjacentHTML("beforeend", `
+            <tr>
+              <td>${entry.id}</td>
+              <td>${entry.user_id}</td>
+              <td>${entry.purpose}</td>
+              <td><span class="badge ${badgeCls}">${entry.decision}</span></td>
+              <td>${entry.reason}</td>
+              <td>${ts}</td>
+            </tr>
+          `);
+        });
+      } catch (e) {
+        alert("Failed to load audit log: " + e.message);
+      }
+    }
+
+    /* ── Audit chain verification ───────────────────────────────── */
+    async function verifyAudit() {
+      const resultEl = document.getElementById("verify-result");
+      resultEl.textContent   = "Verifying…";
+      resultEl.className     = "info";
+      resultEl.style.display = "block";
+
+      try {
+        const res  = await fetch("/audit/verify");
+        const data = await res.json();
+        showResult(resultEl, data.message, data.valid ? "success" : "error");
+      } catch (e) {
+        showResult(resultEl, "Network error: " + e.message, "error");
+      }
+    }
+
+    /* ── Helper ─────────────────────────────────────────────────── */
+    function showResult(el, msg, type) {
+      el.textContent    = msg;
+      el.className      = type;   // "success" | "error" | "info"
+      el.style.display  = "block";
+    }
+  </script>
+</body>
+</html>
