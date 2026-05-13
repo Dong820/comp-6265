@@ -75,6 +75,35 @@ def handle_exception(e):
     return jsonify({"error": type(e).__name__, "detail": str(e)}), 500
 
 
+@app.route("/users", methods=["POST"])
+def create_user():
+    """
+    Create a new user.
+
+    Expected JSON body:
+        {"name": "Alice Mercer", "email": "alice@example.com"}
+
+    Returns 201 on success, 400 if validation fails or email already exists.
+    """
+    data = request.get_json(force=True)
+    name  = (data.get("name")  or "").strip()
+    email = (data.get("email") or "").strip()
+
+    # Validate required fields
+    if not name or not email:
+        return jsonify({"error": "Both name and email are required"}), 400
+
+    # Reject duplicate email addresses
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": f"A user with email '{email}' already exists"}), 400
+
+    user = User(name=name, email=email)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"message": "User created", "user": user.to_dict()}), 201
+
+
 @app.route("/")
 def index():
     """Serve the main consent management UI."""
