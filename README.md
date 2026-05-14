@@ -22,7 +22,7 @@ a tamper-evident trail suitable for accountability and compliance review.
 |---|---|
 | **Flask API** (`app.py`) | REST endpoints for consent registration, access requests, audit retrieval, and chain verification. Includes automatic schema migration at startup. |
 | **Policy Engine** (`policy_engine.py`) | Evaluates each access request against stored consent records. Enforces purpose limitation (coarse) and data minimisation (field-level), returning `allowed`, `partially_allowed`, or `denied`. |
-| **SQLite Database** (`instance/consent.db`) | Stores users, per-purpose consent records, per-field data categories, and the audit log. Managed via SQLAlchemy. |
+| **SQLite Database** (`instance/consent.db`) | Stores users, per-purpose consent records, per-field data categories, and the audit log. Managed via SQLAlchemy. This file is created automatically at first run. |
 | **Audit Chain** (`audit_chain.py`) | Computes SHA-256 hashes over each audit log entry, chaining them so any after-the-fact modification to a row breaks all subsequent hashes. |
 | **Frontend Dashboard** (`templates/index.html`) | Single-page UI for registering consent, submitting access requests, viewing the audit table, and verifying chain integrity. |
 
@@ -78,7 +78,7 @@ The application will be available at **http://127.0.0.1:5000**
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/` | Serves the frontend dashboard (`index.html`). |
-| `POST` | `/consent` | Register or update a user's consent preferences. Accepts `user_id`, `consents` (purpose map), `data_categories` (list), and optional `valid_until` (ISO 8601). |
+| `POST` | `/consent` | Register or update a user's consent preferences. Accepts `user_id`, `consents` (purpose → bool map), `data_categories` (list of permitted field names, applied uniformly to all purposes in this request), and optional `valid_until` (ISO 8601). |
 | `GET` | `/consent/<user_id>` | Retrieve all consent records for a given user. |
 | `POST` | `/request` | Submit a data access request. Accepts `user_id`, `purpose`, and optional `requested_fields`. Returns `decision`, `allowed_fields`, `redacted_fields`, and `reason`. |
 | `GET` | `/audit` | Return the full audit log as JSON, newest-first. Accepts optional `?user_id=` filter. |
@@ -87,6 +87,9 @@ The application will be available at **http://127.0.0.1:5000**
 ### Request / response examples
 
 **POST /consent**
+
+> The `data_categories` list is applied uniformly to all purposes submitted in the same request. If different purposes require different permitted fields, submit them in separate requests.
+
 ```json
 {
   "user_id": 1,
@@ -169,6 +172,8 @@ comp6265-team18/
 ├── audit_chain.py       # compute_hash() and verify_chain() — tamper-evident audit trail
 ├── sample_data.py       # Seeds the database with 3 test users and sample consent records
 ├── requirements.txt     # Python dependencies (Flask, Flask-SQLAlchemy)
-└── templates/
-    └── index.html       # Single-page frontend dashboard
+├── templates/
+│   └── index.html       # Single-page frontend dashboard
+└── instance/
+    └── consent.db       # SQLite database (auto-created at first run, not committed to git)
 ```
